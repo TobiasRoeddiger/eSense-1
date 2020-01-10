@@ -2,6 +2,7 @@ using System;
 using EarableLibrary;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using Karl.Data;
 
 namespace Karl.Model
 {
@@ -26,6 +27,7 @@ namespace Karl.Model
 
 		private readonly IEarableScanner _earableScanner;
 		private IEarable _connectedEarable;
+		private ActivityLog _log;
 		public bool Connected { get => EarableConnected(); }
 		public ObservableCollection<EarableHandle> DiscoveredDevices { get; }
 
@@ -36,6 +38,7 @@ namespace Karl.Model
 			_earableScanner.EarableDiscovered += (s, e) => {
 				DiscoveredDevices.Add(new EarableHandle(e.Earable));
 			};
+			_log = new ActivityLog();
 		}
 
 		/// <summary>
@@ -57,11 +60,15 @@ namespace Karl.Model
 			await _earableScanner.StopScanningAsync();
 			await device.handle.ConnectAsync();
 
+			_log.StopLogging();
+			_log.StartLogging();
+
 			var imu = (MotionSensor)device.handle.Sensors[typeof(MotionSensor)];
-			imu.SamplingRate = 10;
+			imu.SamplingRate = 50;
 			imu.ValueChanged += (s, args) =>
 			{
-				Debug.WriteLine("(Id,Acc(x,y,z))\t{0}\t{1}\t{2}\t{3}", args.PacketId, args.Acc.x, args.Acc.y, args.Acc.z);
+				// Debug.WriteLine("(Id,Acc(x,y,z))\t{0}\t{1}\t{2}\t{3}", args.PacketId, args.Acc.x, args.Acc.y, args.Acc.z);
+				_log.Log(args);
 			};
 			await imu.StartSamplingAsync();
 
@@ -87,6 +94,7 @@ namespace Karl.Model
 			if (!EarableConnected()) return;
 			_connectedEarable.DisconnectAsync();
 			_connectedEarable = null;
+			_log.StopLogging();
 		}
 
 		/// <summary>
